@@ -1,5 +1,9 @@
 version: "3"
 
+networks:
+  spark-network:
+    driver: bridge
+
 services:
   namenode:
     image: bde2020/hadoop-namenode:2.0.0-hadoop3.2.1-java8
@@ -14,6 +18,8 @@ services:
       - CLUSTER_NAME=test
     env_file:
       - ./hadoop.env
+    networks:
+      - spark-network
 
   datanode1:
     image: bde2020/hadoop-datanode:2.0.0-hadoop3.2.1-java8
@@ -25,6 +31,8 @@ services:
       SERVICE_PRECONDITION: "namenode:9870"
     env_file:
       - ./hadoop.env
+    networks:
+      - spark-network
 
   datanode2:
     image: bde2020/hadoop-datanode:2.0.0-hadoop3.2.1-java8
@@ -36,6 +44,8 @@ services:
       SERVICE_PRECONDITION: "namenode:9870"
     env_file:
       - ./hadoop.env
+    networks:
+      - spark-network
   
   resourcemanager:
     image: bde2020/hadoop-resourcemanager:2.0.0-hadoop3.2.1-java8
@@ -47,6 +57,8 @@ services:
       SERVICE_PRECONDITION: "namenode:9000 namenode:9870 datanode1:9864 datanode2:9864"
     env_file:
       - ./hadoop.env
+    networks:
+      - spark-network
 
   nodemanager1:
     image: bde2020/hadoop-nodemanager:2.0.0-hadoop3.2.1-java8
@@ -56,6 +68,8 @@ services:
       SERVICE_PRECONDITION: "namenode:9000 namenode:9870 datanode1:9864 datanode2:9864 resourcemanager:8088"
     env_file:
       - ./hadoop.env
+    networks:
+      - spark-network
   
   historyserver:
     image: bde2020/hadoop-historyserver:2.0.0-hadoop3.2.1-java8
@@ -67,6 +81,8 @@ services:
       - hadoop_historyserver:/hadoop/yarn/timeline
     env_file:
       - ./hadoop.env
+    networks:
+      - spark-network
   
   spark-master:
     image: bde2020/spark-master:3.1.1-hadoop3.2
@@ -80,6 +96,8 @@ services:
       - SPARK_MASTER_WEBUI_PORT=8080
     volumes:
       - ./log4j.properties:/log4j.properties
+    networks:
+      - spark-network
 
   spark-worker1:
     image: bde2020/spark-worker:3.1.1-hadoop3.2
@@ -94,6 +112,8 @@ services:
       - SPARK_WORKER_MEMORY=2G
     depends_on:
       - spark-master
+    networks:
+      - spark-network
 
   spark-worker2:
     image: bde2020/spark-worker:3.1.1-hadoop3.2
@@ -108,6 +128,8 @@ services:
       - SPARK_WORKER_MEMORY=2G
     depends_on:
       - spark-master
+    networks:
+      - spark-network
 
   spark-worker3:
     image: bde2020/spark-worker:3.1.1-hadoop3.2
@@ -122,7 +144,22 @@ services:
       - SPARK_WORKER_MEMORY=2G
     depends_on:
       - spark-master
+    networks:
+      - spark-network
 
+  # spark-worker4:
+  #   image: bde2020/spark-worker:3.1.1-hadoop3.2
+  #   container_name: spark-worker4
+  #   restart: always
+  #   ports:
+  #     - 8084:8081
+  #   environment:
+  #     - SPARK_MODE=worker
+  #     - SPARK_MASTER_URL=spark://spark-master:7077
+  #     - SPARK_WORKER_CORES=2
+  #     - SPARK_WORKER_MEMORY=2G
+  #   depends_on:
+  #     - spark-master
 
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:7.17.5
@@ -137,6 +174,8 @@ services:
       - "ES_JAVA_OPTS=-Xms512m -Xmx512m" 
     volumes:
       - es_data:/usr/share/elasticsearch/data
+    networks:
+      - spark-network
 
   kibana:
     image: docker.elastic.co/kibana/kibana:7.17.5
@@ -148,7 +187,8 @@ services:
       - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
     depends_on:
       - elasticsearch
-
+    networks:
+      - spark-network
 
 volumes:
   hadoop_namenode:
