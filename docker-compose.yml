@@ -107,19 +107,19 @@ services:
     depends_on:
       - spark-master
 
-  spark-worker3:
-    image: bde2020/spark-worker:3.1.1-hadoop3.2
-    container_name: spark-worker3
-    restart: always
-    ports:
-      - 8083:8081
-    environment:
-      - SPARK_MODE=worker
-      - SPARK_MASTER_URL=spark://spark-master:7077
-      - SPARK_WORKER_CORES=2
-      - SPARK_WORKER_MEMORY=2G
-    depends_on:
-      - spark-master
+  # spark-worker3:
+  #   image: bde2020/spark-worker:3.1.1-hadoop3.2
+  #   container_name: spark-worker3
+  #   restart: always
+  #   ports:
+  #     - 8083:8081
+  #   environment:
+  #     - SPARK_MODE=worker
+  #     - SPARK_MASTER_URL=spark://spark-master:7077
+  #     - SPARK_WORKER_CORES=2
+  #     - SPARK_WORKER_MEMORY=2G
+  #   depends_on:
+  #     - spark-master
 
 
   elasticsearch:
@@ -127,8 +127,8 @@ services:
     container_name: elasticsearch
     restart: always
     ports:
-      - 9200:9200  
-      - 9300:9300  
+      - 9400:9400  
+      - 9500:9500  
     environment:
       - discovery.type=single-node
       - bootstrap.memory_lock=true
@@ -143,7 +143,7 @@ services:
     ports:
       - 5601:5601  
     environment:
-      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9400
     depends_on:
       - elasticsearch
 
