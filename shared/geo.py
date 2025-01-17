@@ -1,20 +1,29 @@
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import col, explode, split, count, regexp_replace, concat_ws
 
-spark = SparkSession.builder \
-    .appName("HDFS Example") \
-    .master("spark://spark-master:7077") \
-    .config("spark.hadoop.fs.defaultFS", "hdfs://namenode:9000") \
-    .config("spark.executor.memory", "2g") \
-    .config("spark.executor.cores", "2") \
-    .getOrCreate()
+# spark = SparkSession.builder \
+#     .appName("HDFS Example") \
+#     .master("spark://spark-master:7077") \
+#     .config("spark.hadoop.fs.defaultFS", "hdfs://namenode:9000") \
+#     .config("spark.executor.memory", "4g") \
+#     .config("spark.executor.cores", "2") \
+#     .getOrCreate()
 
-data = spark.read.csv("hdfs://namenode:9000/user/root/tracks.csv", header=True, inferSchema=True)
-data = data.repartition(6)
+# data = spark.read.csv("hdfs://namenode:9000/user/root/output.csv", header=True, inferSchema=True)
+
+spark = SparkSession.builder.appName("Music").getOrCreate()
+
+data = spark.read.csv("output.csv", header=True)
+
+data.show(5)
 
 # ------------------------------------Processing--------------------------------------
 
-geo_data = spark.read.csv("hdfs://namenode:9000/user/root/geo.csv", header=True, inferSchema=True)
+# geo_data = spark.read.csv("hdfs://namenode:9000/user/root/geo.csv", header=True, inferSchema=True)
+
+geo_data = spark.read.csv("geo.csv", header=True)
+
+geo_data.show(5)
 
 data = data.withColumn("Genres", split(col("Genres"), ", ")) \
            .withColumn("AvailableMarkets", split(col("AvailableMarkets"), ", "))
@@ -61,19 +70,27 @@ final_result = final_result.filter(col("location") != "")
 
 final_result.show(20, truncate=False)
 
-es_index_name = "cdef"  # Name of the Elasticsearch index
+pandas_df = final_result.toPandas()
 
-final_result.write \
-    .format("org.elasticsearch.spark.sql") \
-    .option("es.nodes", "elasticsearch") \
-    .option("es.port", "9200") \
-    .option("es.nodes.wan.only", "true") \
-    .option("es.resource", "cdef/_doc") \
-    .option("es.batch.size.entries", "1000") \
-    .mode("append") \
-    .save(es_index_name)
+output_file = "location.csv"  # Specify your file name and path
+pandas_df.to_csv(output_file, index=False)
 
-print(f"Data successfully pushed to Elasticsearch index '{es_index_name}'.")
+print(f"CSV file has been saved to {output_file}")
+
+
+# es_index_name = "map1"  # Name of the Elasticsearch index
+
+# final_result.write \
+#     .format("org.elasticsearch.spark.sql") \
+#     .option("es.nodes", "elasticsearch") \
+#     .option("es.port", "9200") \
+#     .option("es.nodes.wan.only", "true") \
+#     .option("es.resource", "map1/_doc") \
+#     .option("es.batch.size.entries", "1000") \
+#     .mode("append") \
+#     .save(es_index_name)
+
+# print(f"Data successfully pushed to Elasticsearch index '{es_index_name}'.")
 
 # -------------------------------------------------------------------------------------
 # push data to elasticsearch

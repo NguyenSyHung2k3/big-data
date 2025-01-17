@@ -13,8 +13,16 @@ from pyspark.sql.functions import round, mean, min, max, col, floor, avg, explod
 # In[124]:
 
 
-spark = SparkSession.builder.appName("Music").getOrCreate()
-df = spark.read.csv("output.csv", header=True)
+spark = SparkSession.builder \
+    .appName("Music") \
+    .master("spark://spark-master:7077") \
+    .config("spark.hadoop.fs.defaultFS", "hdfs://namenode:9000") \
+    .config("spark.executor.memory", "4g") \
+    .config("spark.executor.cores", "2") \
+    .getOrCreate()
+    # .config("spark.sql.shuffle.partitions", "48") \
+
+df = spark.read.csv("hdfs://namenode:9000/user/root/output.csv", header=True, inferSchema=True)
 
 
 # In[125]:
@@ -23,7 +31,7 @@ df = spark.read.csv("output.csv", header=True)
 float_columns = ["Popularity", "Acousticness", "Energy", "Instrumentalness", 
                  "Liveness", "Loudness", "Speechiness", "Tempo", "Valence"]
 
-int_columns = ["Mode", "Time Signature"]
+int_columns = ["Mode", "TimeSignature"]
 
 
 # In[126]:
@@ -39,7 +47,7 @@ mean_value = df.select(mean("Popularity")).collect()[0][0]
 df = df.fillna({"Popularity": mean_value})
 
 
-# In[127]:
+# # In[127]:
 
 
 df = df.withColumn("Popularity", round(df["Popularity"]).cast(IntegerType()))
@@ -93,99 +101,21 @@ filtered_df.printSchema()
 filtered_df.groupBy("Artists").count().orderBy("count", ascending=False).show()
 
 
-# In[134]:
-
-
-import matplotlib.pyplot as plt
-filtered_df.limit(1000).select("Popularity", "Energy").toPandas().plot.scatter(x="Energy", y="Popularity")
-plt.title("Energy vs Popularity")
-plt.xlabel("Energy")
-plt.ylabel("Popularity")
-plt.show()
-
-
-# In[135]:
-
-
-filtered_df.sample(fraction=0.1, seed=42).limit(1000).select("Valence", "Loudness").toPandas().plot.scatter(x="Valence", y="Loudness")
-
-plt.title("Valence vs Loudness")
-plt.xlabel("Valence")
-plt.ylabel("Loudness")
-plt.show()
-
-
-# In[136]:
-
-
-filtered_df.printSchema()
-
-
 # In[137]:
-
-
-binned_df = filtered_df.withColumn("Energy_Bin", (floor(col("Energy") * 10) / 10))
-
-grouped_df = binned_df.groupBy("Energy_Bin").agg(avg("Popularity").alias("Avg_Popularity"))
-
-# Hiển thị kết quả
-grouped_df.orderBy("Energy_Bin").show()
 
 
 # In[ ]:
 
-
-grouped_pandas_df = grouped_df.orderBy("Energy_Bin").toPandas()
-
-import matplotlib.pyplot as plt
-
-plt.plot(grouped_pandas_df["Energy_Bin"], grouped_pandas_df["Avg_Popularity"], marker="o")
-plt.title("Average Popularity by Energy Bins")
-plt.xlabel("Energy Bins")
-plt.ylabel("Average Popularity")
-plt.show()
 
 
 # In[51]:
 
 
-top_songs = filtered_df.filter(col("Popularity") > 80)
-top_songs.show()
-
-
 # In[ ]:
 
 
-from pyspark.sql.functions import when, col, regexp_replace, split, explode, size
-import pandas as pd
-# Step 1: Remove null or empty values in Genres
-filtered_df = filtered_df.filter((col("Genres").isNotNull()) & (size(col("Genres")) > 0))
-df_exploded = filtered_df.withColumn("Genre", explode(col("Genres")))
-genre_counts_spark = df_exploded.groupBy("Genre").count().orderBy(col("count").desc())
-
-genre_counts_spark_df = genre_counts_spark.toPandas()
-print(genre_counts_spark_df)
-
 
 # In[108]:
-
-
-genre_popularity = (
-    df_exploded.groupBy("Genre")
-    .agg(avg("Popularity").alias("Average Popularity"))
-    .orderBy(col("Average Popularity").desc())
-)
-genre_popularity_pd = genre_popularity.toPandas()
-import matplotlib.pyplot as plt
-plt.figure(figsize=(12, 6))
-plt.bar(genre_popularity_pd["Genre"].head(20), genre_popularity_pd["Average Popularity"].head(20))
-plt.title("Average Popularity by Genre")
-plt.xlabel("Genre")
-plt.ylabel("Average Popularity")
-plt.xticks(rotation=45)
-plt.tight_layout()
-plt.show()
-
 
 
 # In[152]:
@@ -239,26 +169,37 @@ artist_genre_popularity = (
 # Show the results
 artist_genre_popularity.show()
 
+# artist_genre_popularity.write \
+#     .format("org.elasticsearch.spark.sql") \
+#     .option("es.nodes", "elasticsearch") \
+#     .option("es.port", "9200") \
+#     .option("es.nodes.wan.only", "true") \
+#     .option("es.batch.size.entries", "1000") \
+#     .mode("append") \
+#     .save("artist_genre_popularity")
+
+# print("Data successfully pushed to Elasticsearch index artist_genre_popularity.")
+
 
 # In[171]:
 
 
-artist_genre_popularity_pd = artist_genre_popularity.toPandas()
+# artist_genre_popularity_pd = artist_genre_popularity.toPandas()
 
-# Example: Filter for a specific artist
-specific_artist = "ArianaGrande"
-artist_genre_subset = artist_genre_popularity_pd[artist_genre_popularity_pd["Artist"] == specific_artist].head(20)
+# # Example: Filter for a specific artist
+# specific_artist = "ArianaGrande"
+# artist_genre_subset = artist_genre_popularity_pd[artist_genre_popularity_pd["Artist"] == specific_artist].head(20)
 
 # Plot the popularity of genres for the specific artist
-import matplotlib.pyplot as plt
-plt.figure(figsize=(10, 6))
-plt.bar(artist_genre_subset["Genre"], artist_genre_subset["Average Popularity"])
-plt.title(f"Genres Influencing Popularity of {specific_artist}")
-plt.xlabel("Genre")
-plt.ylabel("Average Popularity")
-plt.xticks(rotation=45)
-plt.tight_layout()
-plt.show()
+# import matplotlib.pyplot as plt
+# plt.figure(figsize=(10, 6))
+# plt.bar(artist_genre_subset["Genre"], artist_genre_subset["Average Popularity"])
+# plt.title(f"Genres Influencing Popularity of {specific_artist}")
+# plt.xlabel("Genre")
+# plt.ylabel("Average Popularity")
+# plt.xticks(rotation=45)
+# plt.tight_layout()
+# plt.show()
 
 
 # In[169]:
@@ -275,17 +216,17 @@ top_genres = (
 )
 
 # Convert to Pandas and visualize
-top_genres_pd = top_genres.sample(fraction=0.1, seed=42).limit(20).toPandas()
+# top_genres_pd = top_genres.sample(fraction=0.1, seed=42).limit(20).toPandas()
 
 # Plot top genres by average popularity
-plt.figure(figsize=(10, 6))
-plt.bar(top_genres_pd["Genre"], top_genres_pd["Overall Average Popularity"])
-plt.title("Top Genres by Average Popularity Across All Artists")
-plt.xlabel("Genre")
-plt.ylabel("Average Popularity")
-plt.xticks(rotation=45)
-plt.tight_layout()
-plt.show()
+# plt.figure(figsize=(10, 6))
+# plt.bar(top_genres_pd["Genre"], top_genres_pd["Overall Average Popularity"])
+# plt.title("Top Genres by Average Popularity Across All Artists")
+# plt.xlabel("Genre")
+# plt.ylabel("Average Popularity")
+# plt.xticks(rotation=45)
+# plt.tight_layout()
+# plt.show()
 
 
 # In[172]:
@@ -303,6 +244,17 @@ genre_artist_popularity = (
 # Show the top artists per genre
 genre_artist_popularity.show()
 
+# genre_artist_popularity.write \
+#     .format("org.elasticsearch.spark.sql") \
+#     .option("es.nodes", "elasticsearch") \
+#     .option("es.port", "9200") \
+#     .option("es.nodes.wan.only", "true") \
+#     .option("es.batch.size.entries", "1000") \
+#     .mode("append") \
+#     .save("genre_artist_popularity")
+
+# print("Data successfully pushed to Elasticsearch index genre_artist_popularity.")
+
 
 # In[173]:
 
@@ -318,4 +270,15 @@ top_artists_per_genre = top_artists_per_genre.filter(col("Rank") <= 3)
 
 # Show the results
 top_artists_per_genre.show()
+
+top_artists_per_genre.write \
+    .format("org.elasticsearch.spark.sql") \
+    .option("es.nodes", "elasticsearch") \
+    .option("es.port", "9200") \
+    .option("es.nodes.wan.only", "true") \
+    .option("es.batch.size.entries", "1000") \
+    .mode("append") \
+    .save("top_artists_per_genre")
+
+print("Data successfully pushed to Elasticsearch index top_artists_per_genre.")
 
